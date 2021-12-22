@@ -7,9 +7,14 @@ const {useApp, useInternals, useGeometries, useMaterials, useFrame, useActivate,
 
 const baseUrl = import.meta.url.replace(/(\/)[^\/\\]*$/, '$1');
 
-/* const localVector = new THREE.Vector3();
+const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
-const localVector2D = new THREE.Vector2(); */
+const localQuaternion = new THREE.Quaternion();
+const localEuler = new THREE.Euler();
+const localEuler2 = new THREE.Euler();
+
+const forward = new THREE.Vector3(0, 0, -1);
+const y180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 export default e => {
   const app = useApp();
@@ -19,156 +24,141 @@ export default e => {
   // const {WebaverseShaderMaterial} = useMaterials();
   // const Text = useTextInternal();
 
+  let silkWorm = null;
+  const speed = 0.03;
+  const angularSpeed = 0.02;
   (async () => {
-    const silkWorm = await metaversefile.load(`${baseUrl}silkworm_v1_fleeky.glb`);
+    silkWorm = await metaversefile.load(`${baseUrl}silkworm_v1_fleeky.glb`);
+    silkWorm.quaternion.copy(y180Quaternion);
     silkWorm.frustumCulled = false;
     app.add(silkWorm);
-    window.silkWorm = silkWorm;
+    // window.silkWorm = silkWorm;
+
+    silkWorm.addEventListener('hit', e => {
+      console.log('silk worm hit', e);
+    });
   })();
 
-  /* const redMaterial = new WebaverseShaderMaterial({
-    uniforms: {
-      uTime: {
-        value: 0,
+  // this function returns a float representing the playerr look direction of the given vector, as a rotation around the y axis.
+  // the value 0 means forward, left is negative, and right is positive.
+  const directionToFacingAngle = (() => {
+    const localQuaternion = new THREE.Quaternion();
+    const localEuler = new THREE.Euler();
+    return direction => {
+      localQuaternion.setFromUnitVectors(forward, direction);
+      localEuler.setFromQuaternion(localQuaternion, 'YXZ');
+      return localEuler.y;
+    };
+  })();
+
+  // this function moves the y-axis angle of the quaternion towards the given direction, by the given amount of radians.
+  // the rotation should not overshoot the direction; if it does, it will be clamped to the direction.
+  const _angleQuaternionTowards = (quaternion, ry, radians) => {
+    localEuler.setFromQuaternion(quaternion, 'YXZ');
+    localEuler2.set(0, ry, 0, 'YXZ');
+
+    localEuler.y += Math.PI*2;
+    localEuler2.y += Math.PI*2;
+
+    if (localEuler.y < localEuler2.y) {
+      localEuler.y += radians;
+      if (localEuler.y > localEuler2.y) {
+        localEuler.y = localEuler2.y;
+      }
+    } else if (localEuler.y > localEuler2.y) {
+      localEuler.y -= radians;
+      if (localEuler.y < localEuler2.y) {
+        localEuler.y = localEuler2.y;
+      }
+    }
+
+    // console.log('update', localEuler.y, directionToFacingAngle(direction), direction.toArray().join(','));
+
+    quaternion.setFromEuler(localEuler);
+  };
+
+  let silkWormAction = null;
+  const targetPositionAction = () => {
+    const range = 10;
+    const targetPosition = app.position.clone()
+      .add(new THREE.Vector3(Math.random() * 2 - 1, 0, Math.random() * 2 - 1).multiplyScalar(range));
+    return {
+      // name: 'targetPosition',
+      update(timestamp) {
+        // console.log('got 1', app.position.toArray().join(','), targetPosition.toArray().join(','));
+        if (app.position.distanceTo(targetPosition) >= 1) {
+          const direction = targetPosition.clone().sub(app.position).normalize();
+          // console.log('got 2', direction.toArray().join(','));
+          app.position.add(direction.clone().multiplyScalar(speed));
+          // const directionQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Quaternion(), direction);
+          _angleQuaternionTowards(app.quaternion, directionToFacingAngle(direction), angularSpeed * 2);
+          app.updateMatrixWorld();
+          return true;
+        } else {
+          return false;
+        }
       },
-    },
-    vertexShader: `\
-      uniform float uTime;
-      varying vec3 vPosition;
-      varying vec2 vUv;
-      attribute float characterIndex;
+    };
+  };
+  const _angleDiff = (a1, a2) => Math.PI - Math.abs(Math.abs(a1 - a2) - Math.PI);
+  const targetQuaternionAction = () => {
+    const targetEuler = new THREE.Euler(0, Math.random() * Math.PI*2, 0, 'YXZ');
+    // const targetQuaternion = new THREE.Quaternion().setFromEuler(targetEuler);
+    return {
+      // name: 'targetQuaternion',
+      update(timestamp) {
+        localEuler.setFromQuaternion(app.quaternion, 'YXZ');
+        if (_angleDiff(localEuler.y, targetEuler.y) > 0.1) {
+          app.position.add(new THREE.Vector3(0, 0, -speed).applyQuaternion(app.quaternion));
+          _angleQuaternionTowards(app.quaternion, targetEuler.y, angularSpeed);
 
-      void main() {
-        vPosition = vPosition;
-        vUv = uv;
-        
-        const float rate = 1.5;
-        const float range = 1.;
+          app.updateMatrixWorld();
 
-        float t = min(max(mod(uTime, 1.) - characterIndex*0.08, 0.), 1.);
-        t = pow(t, 0.75);
-        const float a = -20.;
-        const float v = 4.;
-        float y = max(0.5 * a * pow(t, 2.) + v * t, 0.);
-        y *= 0.5;
+          // silkWorm.quaternion.slerp(targetQuaternion, f)
+          return true;
+        } else {
+          return false;
+        }
+      },
+    };
+  };
+  const alertAction = () => {
 
-        vec3 p = position + vec3(0, y, 0);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-      }
-    `,
-    fragmentShader: `\
-      varying vec3 vPosition;
-      varying vec2 vUv;
-      // uniform vec3 color;
-      void main() {
-        gl_FragColor = vec4(vUv, 0., 1.0);
-      }
-    `,
-    side: THREE.DoubleSide,
-    transparent: true,
-  });
-  async function makeTextMesh(
-    text = '',
-    font = '/fonts/Bangers-Regular.ttf',
-    fontSize = 0.5,
-    anchorX = 'center',
-    anchorY = 'middle',
-    color = 0x000000,
-  ) {
-    const textMesh = new Text();
-    textMesh.material = redMaterial;
-    textMesh.text = text;
-    textMesh.font = font;
-    textMesh.fontSize = fontSize;
-    textMesh.color = color;
-    textMesh.anchorX = anchorX;
-    textMesh.anchorY = anchorY;
-    textMesh.frustumCulled = false;
-    // textMesh.outlineWidth = 0.1;
-    // textMesh.outlineColor = 0x000000;
-    await new Promise((accept, reject) => {
-      textMesh.sync(accept);
-    });
-    const characterIndices = new Float32Array(textMesh.geometry.attributes.aTroikaGlyphIndex.array.length);
-    for (let i = 0; i < characterIndices.length; i++) {
-      characterIndices[i] = i;
-    }
-    const characterIndexAttribute = new THREE.InstancedBufferAttribute(characterIndices, 1, false);
-    textMesh.geometry.setAttribute('characterIndex', characterIndexAttribute);
-    return textMesh;
-  } */
+  };
+  const aggroAction = () => {
 
-  /* const numberStrings = Array(10);
-  for (let i = 0; i < numberStrings.length; i++) {
-    numberStrings[i] = i + '';
-  } */
-  /* const numberStrings = ['271'];
-  let numberMeshes = null;
-  let numberGeometries = null;
-  let numberMaterials = null;
-  e.waitUntil((async () => {
-    numberMeshes = await Promise.all(numberStrings.map(async s => {
-      // console.log('wait 1');
-      const textMesh = await makeTextMesh(s);
-      // console.log('wait 2');
-      return textMesh;
-    }));
-    numberGeometries = numberMeshes.map(m => m.geometry);
-    numberMaterials = numberMeshes.map(m => m.geometry);
+  };
+  const hitAction = () => {
 
-    const tempScene = new THREE.Scene();
-    for (const numberMesh of numberMeshes) {
-      tempScene.add(numberMesh);
-    }
-    renderer.compile(tempScene, camera);
-    for (const numberMesh of numberMeshes) {
-      tempScene.remove(numberMesh);
-    }
-
-    window.numberMeshes = numberMeshes;
-    window.numberGeometries = numberGeometries;
-    window.numberMaterials = numberMaterials;
-  })()); */
-
-  let textMeshSpec = null;
+  };
+  const chooseActionOptions = [
+    targetPositionAction,
+    targetQuaternionAction,
+  ];
+  const _chooseSilkWormAction = () => {
+    const actionOption = chooseActionOptions[Math.floor(Math.random() * chooseActionOptions.length)];
+    return actionOption();
+  };
 
   let running = false;
   useFrame(async ({timestamp}) => {
-    if (!running) {
+    if (silkWorm && !running) {
       running = true;
 
-      /* if (textMeshSpec && timestamp >= textMeshSpec.endTime) {
-        for (const textMesh of textMeshSpec.textMeshes) {
-          scene.remove(textMesh);
+      for (;;) {
+        console.log('tick');
+        if (!silkWormAction) {
+          silkWormAction = _chooseSilkWormAction();
         }
-        textMeshSpec = null;
+        if (silkWormAction.update(timestamp)) {
+          break;
+        } else {
+          silkWormAction = null;
+        }
       }
-      if (!textMeshSpec) {
-        const text = Math.floor(Math.random() * 2000) + '';
-        const textMesh = await makeTextMesh(text);
-        textMesh.position.y = 2;
-        textMesh.frustumCulled = false;
-        textMesh.updateMatrixWorld();
-        scene.add(textMesh);
-
-        const textMeshes = [textMesh];
-        textMeshSpec = {
-          text,
-          textMeshes,
-          startTime: timestamp,
-          endTime: timestamp + 1000,
-        };
-        window.textMeshSpec = textMeshSpec;
-      } */
 
       running = false;
     }
-
-    /* if (textMeshSpec) {
-      for (const textMesh of textMeshSpec.textMeshes) {
-        textMesh.material.uniforms.uTime.value = (timestamp - textMeshSpec.startTime) / 1000;
-      }
-    } */
   });
 
   const physicsIds = [];
