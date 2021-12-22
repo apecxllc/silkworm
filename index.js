@@ -3,7 +3,7 @@ import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUti
 // import easing from './easing.js';
 import metaversefile from 'metaversefile';
 import {getCaretAtPoint} from 'troika-three-text';
-const {useApp, useInternals, useGeometries, useMaterials, useFrame, useActivate, useLoaders, usePhysics, useTextInternal, addTrackedApp, useDefaultModules, useCleanup} = metaversefile;
+const {useApp, useInternals, useGeometries, useMaterials, getAppByPhysicsId, useFrame, useActivate, useLoaders, usePhysics, useTextInternal, addTrackedApp, useDefaultModules, useCleanup} = metaversefile;
 
 const baseUrl = import.meta.url.replace(/(\/)[^\/\\]*$/, '$1');
 
@@ -12,9 +12,11 @@ const localVector2 = new THREE.Vector3();
 const localQuaternion = new THREE.Quaternion();
 const localEuler = new THREE.Euler();
 const localEuler2 = new THREE.Euler();
+const localMatrix = new THREE.Matrix4();
 
 const forward = new THREE.Vector3(0, 0, -1);
 const y180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+const hitSpeed = 6;
 
 export default e => {
   const app = useApp();
@@ -119,13 +121,58 @@ export default e => {
     };
   };
   const alertAction = () => {
-
+    // XXX
   };
   const aggroAction = () => {
-
+    // XXX
   };
-  const hitAction = () => {
+  const hitAction = (hitDirection, hitVelocity) => {
+    // console.log('hit');
+    const enableGravity = true;
+    physics.setVelocity(physicsObject, hitVelocity, enableGravity);
+    let groundedFrames = 0;
+    const maxGroundedFrames = 10;
+    return {
+      // name: 'targetQuaternion',
+      update(timestamp) {
+        // getAppByPhysicsId(physicsObject).position.add(physicsObject.velocity.clone().multiplyScalar(hitSpeed));
 
+        // console.log('got app', physicsObject.position.toArray().join(','), physicsObject.collided, physicsObject.grounded);
+        const hitQuaternion = localQuaternion.setFromRotationMatrix(
+          localMatrix.lookAt(
+            localVector.set(0, 0, 0),
+            hitDirection,
+            localVector2.set(0, 1, 0)
+          )
+        ).premultiply(y180Quaternion);
+        app.position.copy(physicsObject.position);
+        app.quaternion.slerp(
+          hitQuaternion,
+          0.5
+        );
+        app.updateMatrixWorld();
+
+        groundedFrames += +physicsObject.grounded;
+
+        if (groundedFrames < maxGroundedFrames) {
+          return true;
+        } else {
+          return false;
+        }
+        /* localEuler.setFromQuaternion(app.quaternion, 'YXZ');
+        if (_angleDiff(localEuler.y, targetEuler.y) > 0.1) {
+          app.position.add(new THREE.Vector3(0, 0, -speed).applyQuaternion(app.quaternion));
+          _angleQuaternionTowards(app.quaternion, targetEuler.y, angularSpeed);
+
+          app.updateMatrixWorld();
+
+          // silkWorm.quaternion.slerp(targetQuaternion, f)
+          return true;
+        } else {
+          return false;
+        } */
+      },
+    };
   };
   const chooseActionOptions = [
     targetPositionAction,
@@ -169,8 +216,14 @@ export default e => {
   });
 
   app.addEventListener('hit', e => {
-    console.log('silk worm hit', e);
-    // debugger;
+    // console.log('silk worm hit', e);
+
+    const {hitDirection} = e;
+    const hitVelocity = hitDirection.clone();
+    hitVelocity.y = 0.5 + Math.random();
+    hitVelocity.normalize().multiplyScalar(hitSpeed);
+
+    silkWormAction = hitAction(hitDirection, hitVelocity);
   });
 
   const physicsIds = [];
