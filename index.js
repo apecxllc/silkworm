@@ -146,7 +146,8 @@ export default e => {
       running = true;
 
       for (;;) {
-        console.log('tick');
+        // console.log('tick');
+
         if (!silkWormAction) {
           silkWormAction = _chooseSilkWormAction();
         }
