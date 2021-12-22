@@ -5,19 +5,28 @@ import metaversefile from 'metaversefile';
 import {getCaretAtPoint} from 'troika-three-text';
 const {useApp, useInternals, useGeometries, useMaterials, useFrame, useActivate, useLoaders, usePhysics, useTextInternal, addTrackedApp, useDefaultModules, useCleanup} = metaversefile;
 
-const localVector = new THREE.Vector3();
+const baseUrl = import.meta.url.replace(/(\/)[^\/\\]*$/, '$1');
+
+/* const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
-const localVector2D = new THREE.Vector2();
+const localVector2D = new THREE.Vector2(); */
 
 export default e => {
   const app = useApp();
   const {renderer, scene, camera} = useInternals();
   const physics = usePhysics();
   // const {CapsuleGeometry} = useGeometries();
-  const {WebaverseShaderMaterial} = useMaterials();
-  const Text = useTextInternal();
+  // const {WebaverseShaderMaterial} = useMaterials();
+  // const Text = useTextInternal();
 
-  const redMaterial = new WebaverseShaderMaterial({
+  (async () => {
+    const silkWorm = await metaversefile.load(`${baseUrl}silkworm_v1_fleeky.glb`);
+    silkWorm.frustumCulled = false;
+    app.add(silkWorm);
+    window.silkWorm = silkWorm;
+  })();
+
+  /* const redMaterial = new WebaverseShaderMaterial({
     uniforms: {
       uTime: {
         value: 0,
@@ -42,12 +51,6 @@ export default e => {
         const float v = 4.;
         float y = max(0.5 * a * pow(t, 2.) + v * t, 0.);
         y *= 0.5;
-
-        /* float characterFactorY = characterIndex * PI * 0.25;
-        float timeFactorY = uTime * PI * 2. * rate;
-        float factor = characterFactorY + timeFactorY;
-        float sinFactor = 1. + sin(factor)*0.5;
-        float y = pow(sinFactor, 0.2) * range; */
 
         vec3 p = position + vec3(0, y, 0);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
@@ -93,7 +96,7 @@ export default e => {
     const characterIndexAttribute = new THREE.InstancedBufferAttribute(characterIndices, 1, false);
     textMesh.geometry.setAttribute('characterIndex', characterIndexAttribute);
     return textMesh;
-  }
+  } */
 
   /* const numberStrings = Array(10);
   for (let i = 0; i < numberStrings.length; i++) {
@@ -128,17 +131,13 @@ export default e => {
   })()); */
 
   let textMeshSpec = null;
-  /* const textMesh = makeTextMesh('');
-  textMesh.frustumCulled = false;
-  scene.add(textMesh); */
 
   let running = false;
   useFrame(async ({timestamp}) => {
-    // console.log('got', {numberGeometries, numberMaterial});
     if (!running) {
       running = true;
 
-      if (textMeshSpec && timestamp >= textMeshSpec.endTime) {
+      /* if (textMeshSpec && timestamp >= textMeshSpec.endTime) {
         for (const textMesh of textMeshSpec.textMeshes) {
           scene.remove(textMesh);
         }
@@ -152,10 +151,6 @@ export default e => {
         textMesh.updateMatrixWorld();
         scene.add(textMesh);
 
-        /* const textMesh = makeTextMesh(text, undefined, 1, 'center', 'middle', 0xffffff);
-        setTimeout(() => {
-          console.log('got', textMesh.geometry.attributes.aTroikaGlyphBounds?.array.length);
-        }, 1000); */
         const textMeshes = [textMesh];
         textMeshSpec = {
           text,
@@ -164,16 +159,16 @@ export default e => {
           endTime: timestamp + 1000,
         };
         window.textMeshSpec = textMeshSpec;
-      }
+      } */
 
       running = false;
     }
 
-    if (textMeshSpec) {
+    /* if (textMeshSpec) {
       for (const textMesh of textMeshSpec.textMeshes) {
         textMesh.material.uniforms.uTime.value = (timestamp - textMeshSpec.startTime) / 1000;
       }
-    }
+    } */
   });
 
   const physicsIds = [];
