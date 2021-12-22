@@ -33,10 +33,6 @@ export default e => {
     silkWorm.frustumCulled = false;
     app.add(silkWorm);
     // window.silkWorm = silkWorm;
-
-    silkWorm.addEventListener('hit', e => {
-      console.log('silk worm hit', e);
-    });
   })();
 
   // this function returns a float representing the playerr look direction of the given vector, as a rotation around the y axis.
@@ -162,8 +158,6 @@ export default e => {
     }
   });
 
-  const physicsIds = [];
-
   /* let activateCb = null;
   let frameCb = null;
   useActivate(() => {
@@ -171,9 +165,19 @@ export default e => {
   }); */
   useFrame(({timestamp, timeDiff}) => {
     // frameCb && frameCb();
-
     // material.uniforms.time.value = (performance.now() / 1000) % 1;
   });
+
+  app.addEventListener('hit', e => {
+    console.log('silk worm hit', e);
+    // debugger;
+  });
+
+  const physicsIds = [];
+
+  const physicsMaterial = new THREE.Vector3(0.5, 0.5, 0);
+  const physicsObject = physics.addCapsuleGeometry(app.position, app.quaternion, 0.3, 0, physicsMaterial);
+  physicsIds.push(physicsObject);
   
   useCleanup(() => {
     for (const physicsId of physicsIds) {
