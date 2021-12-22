@@ -1,5 +1,5 @@
 {
-  "name": "silk-worm",
+  "name": "silkworm",
   "start_url": "index.js",
   "components": {
     "activate": true
