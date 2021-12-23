@@ -219,11 +219,15 @@ export default e => {
     // console.log('silk worm hit', e);
 
     const {hitDirection} = e;
-    const hitVelocity = hitDirection.clone();
+    const hitDirectionXZ = hitDirection.clone();
+    hitDirectionXZ.y = 0;
+    hitDirectionXZ.normalize();
+
+    const hitVelocity = hitDirectionXZ.clone();
     hitVelocity.y = 0.5 + Math.random();
     hitVelocity.normalize().multiplyScalar(hitSpeed);
 
-    silkWormAction = hitAction(hitDirection, hitVelocity);
+    silkWormAction = hitAction(hitDirectionXZ, hitVelocity);
   });
 
   const physicsIds = [];
