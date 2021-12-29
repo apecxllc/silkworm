@@ -234,6 +234,7 @@ export default e => {
 
   const physicsMaterial = new THREE.Vector3(0.5, 0.5, 1);
   const physicsObject = physics.addCapsuleGeometry(app.position, app.quaternion, 0.3, 0, physicsMaterial);
+  physicsObject.detached = true;
   physicsIds.push(physicsObject);
   
   useCleanup(() => {
