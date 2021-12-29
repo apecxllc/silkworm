@@ -183,10 +183,10 @@ export default e => {
     return actionOption();
   };
 
-  let running = false;
-  useFrame(async ({timestamp}) => {
-    if (silkWorm && !running) {
-      running = true;
+  // let running = false;
+  useFrame(({timestamp}) => {
+    if (silkWorm) {
+      // running = true;
 
       for (;;) {
         // console.log('tick');
@@ -201,7 +201,14 @@ export default e => {
         }
       }
 
-      running = false;
+      // running = false;
+    }
+
+    for (const physicsObject of physicsIds) {
+      physicsObject.position.copy(app.position);
+      physicsObject.quaternion.copy(app.quaternion);
+      physicsObject.updateMatrixWorld();
+      physics.setTransform(physicsObject);
     }
   });
 
